@@ -43,8 +43,7 @@ const keepAlive = async () => {
   }
 };
 
-// Run keep-alive every 5 minutes
-setInterval(keepAlive, 5 * 60 * 1000); // 5 minutes
+
 
 // Run keep-alive every week
 setInterval(keepAlive, 7 * 24 * 60 * 60 * 1000); // 7 days
