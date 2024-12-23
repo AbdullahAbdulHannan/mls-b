@@ -18,7 +18,7 @@ mongoose.connect(process.env.MONGO_URI);
 const db = mongoose.connection;
 db.on("error", console.error.bind(console, "Connection error:"));
 db.once("open", () => console.log("Connected to MongoDB"));
-
+const ADMIN_EMAIL=process.env.ADMIN_EMAIL
 // Define Schemas
 const jobSchema = new mongoose.Schema({
   positionTitle: { type: String, required: true },
@@ -28,27 +28,67 @@ const jobSchema = new mongoose.Schema({
   requirements: { type: String, required: true },
 });
 
-
+const adminSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+});
 
 // Models
 const Job = mongoose.model("Job", jobSchema);
-
-// Keep-Alive Function
-const keepAlive = async () => {
-  try {
-    await Job.findOne(); // Simple query to keep the database active
-    console.log("Keep-alive query executed");
-  } catch (err) {
-    console.error("Error during keep-alive query:", err.message);
-  }
-};
-
-
-
-// Run keep-alive every week
-setInterval(keepAlive, 7 * 24 * 60 * 60 * 1000); // 7 days
+const Admin = mongoose.model("Admin", adminSchema);
 
 // Routes
+// Admin Routes
+app.post("/admin/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    if (email !== ADMIN_EMAIL) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (admin.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    res.status(200).json({ message: "Login successful" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Update Password Route
+app.put("/admin/update-password", async (req, res) => {
+  const { email, currentPassword, newPassword } = req.body;
+
+  try {
+    if (email !== ADMIN_EMAIL) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (admin.password !== currentPassword) {
+      return res.status(401).json({ message: "Invalid current password" });
+    }
+
+    admin.password = newPassword;
+    await admin.save();
+
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Job Routes
 app.post("/jobs", async (req, res) => {
   try {
@@ -79,7 +119,17 @@ app.delete("/jobs/:id", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
+// Keep-Alive Function
+const keepAlive = async () => {
+  try {
+    await Job.findOne(); // Simple query to keep the database active
+    console.log("Keep-alive query executed");
+  } catch (err) {
+    console.error("Error during keep-alive query:", err.message);
+  }
+};
+// Run keep-alive every week
+setInterval(keepAlive, 7 * 24 * 60 * 60 * 1000); // 7 days
 // Start Server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
