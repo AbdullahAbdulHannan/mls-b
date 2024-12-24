@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const bcrypt = require("bcrypt");
 dotenv.config();
 
 // Initialize App
@@ -33,15 +34,35 @@ const adminSchema = new mongoose.Schema({
   password: { type: String, required: true },
 });
 
+adminSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    console.log("ad =>",this.password);
+    
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+ async function generateHash() {
+    const password = 'admin2468';
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(password, salt);
+    console.log('Generated hash:', hash);
+  }
+  
+  generateHash();
 // Models
 const Job = mongoose.model("Job", jobSchema);
 const Admin = mongoose.model("Admin", adminSchema);
-
 // Routes
-// Admin Routes
+
+
 app.post("/admin/login", async (req, res) => {
   const { email, password } = req.body;
-
+  
   try {
     if (email !== ADMIN_EMAIL) {
       return res.status(403).json({ message: "Unauthorized access" });
@@ -52,17 +73,21 @@ app.post("/admin/login", async (req, res) => {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    if (admin.password !== password) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    // Compare the provided password with the hashed password
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials",password:admin.password,match:isMatch})
+ 
     }
-
+    
     res.status(200).json({ message: "Login successful" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Update Password Route
+
+// Admin Update Password Route
 app.put("/admin/update-password", async (req, res) => {
   const { email, currentPassword, newPassword } = req.body;
 
@@ -76,10 +101,11 @@ app.put("/admin/update-password", async (req, res) => {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    if (admin.password !== currentPassword) {
+    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    if (!isMatch) {
       return res.status(401).json({ message: "Invalid current password" });
     }
-
+    
     admin.password = newPassword;
     await admin.save();
 
