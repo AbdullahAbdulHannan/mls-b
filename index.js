@@ -90,7 +90,7 @@ app.post("/admin/login", async (req, res) => {
 // Admin Update Password Route
 app.put("/admin/update-password", async (req, res) => {
   const { email, currentPassword, newPassword } = req.body;
-
+ 
   try {
     if (email !== ADMIN_EMAIL) {
       return res.status(403).json({ message: "Unauthorized access" });
